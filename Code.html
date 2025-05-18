@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ScientiFlow Interactive Plot Viewer</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #e0e7ff 0%, #f0fff4 100%);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 600px;
+            margin: 40px auto;
+            background: #fff;
+            border-radius: 18px;
+            box-shadow: 0 4px 32px rgba(0,0,0,0.10);
+            padding: 32px 24px 40px 24px;
+            text-align: center;
+        }
+        .logo {
+            width: 180px;
+            margin: 0 auto 18px auto;
+            display: block;
+        }
+        h1 {
+            color: #3b3b7a;
+            margin-bottom: 8px;
+        }
+        input[type=file] {
+            margin: 20px auto 16px auto;
+            display: block;
+        }
+        #plotOptions {
+            margin-bottom: 20px;
+        }
+        button {
+            background: linear-gradient(90deg, #6366f1 0%, #06b6d4 100%);
+            color: white;
+            border: none;
+            padding: 10px 22px;
+            margin: 6px 8px;
+            cursor: pointer;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 500;
+            transition: background 0.2s;
+            box-shadow: 0 2px 8px rgba(99,102,241,0.08);
+        }
+        button:hover {
+            background: linear-gradient(90deg, #06b6d4 0%, #6366f1 100%);
+        }
+        #plot {
+            width: 100%;
+            min-height: 360px;
+            background: #f1f5f9;
+            border-radius: 12px;
+            box-shadow: 0 1px 8px rgba(0,0,0,0.03);
+            margin: 0 auto;
+            padding: 0;
+            text-align: center;
+            display: block;
+            position: relative;
+        }
+
+        #plot > div.plotly-graph-div {
+            display: inline-block !important;
+            margin: 0 auto !important;
+            float: none !important;
+            width: 95% !important;
+            min-width: 300px;
+            max-width: 520px;
+            min-height: 340px;
+        }
+        @media (max-width: 650px) {
+            .container { padding: 10px 2vw 24px 2vw; }
+            #plot { min-height: 220px; }
+            #plot > div.plotly-graph-div { min-height: 180px; }
+        }
+    </style>
+
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <div class="container">
+
+        <img class="logo" src="Logo.png" alt="ScientiFlow Logo">
+        <h1>Data Visualization Tool</h1>
+        <input type="file" id="fileInput" accept=".csv" />
+        <div id="plotOptions">
+            <button id="plot1Btn">Show Line Chart</button>
+            <button id="plot2Btn">Show Bar Chart</button>
+            <button id="exportBtn">Export Plot as PNG</button>
+        </div>
+        <div id="plot"></div>
+    </div>
+    <script>
+        let csvData = null;
+        let lastPlotType = null;
+
+        document.getElementById('fileInput').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                csvData = parseCSV(text);
+                //alert('CSV file loaded. Now select a plot type.');
+                document.getElementById('plot').innerHTML = '';
+                lastPlotType = null;
+            };
+            reader.readAsText(file);
+        });
+
+        function parseCSV(text) {
+            const lines = text.split('\n').filter(line => line.trim() !== '');
+            const headers = lines[0].split(',');
+            const rows = lines.slice(1).map(line => line.split(','));
+            return { headers, rows };
+        }
+
+        function getColumnData(data, colIndex) {
+            return data.rows.map(row => {
+                const val = row[colIndex];
+                const num = parseFloat(val);
+                return isNaN(num) ? val : num;
+            });
+        }
+
+        function showPlot(type) {
+            if (!csvData) {
+                alert('Please upload a CSV file first.');
+                return;
+            }
+            const xData = getColumnData(csvData, 0);
+            const yData = getColumnData(csvData, 1);
+
+            let trace, layout, title;
+            if (type === 'line') {
+                trace = {
+                    x: xData,
+                    y: yData,
+                    mode: 'lines+markers',
+                    type: 'scatter',
+                    line: { color: '#6366f1', width: 3 },
+                    marker: { size: 8, color: '#06b6d4' }
+                };
+                title = 'Line Chart';
+            } else {
+                trace = {
+                    x: xData,
+                    y: yData,
+                    type: 'bar',
+                    marker: { color: '#06b6d4' }
+                };
+                title = 'Bar Chart';
+            }
+
+            layout = {
+                title: { text: title, font: { color: '#3b3b7a', size: 22 } },
+                xaxis: { title: csvData.headers[0], color: '#3b3b7a' },
+                yaxis: { title: csvData.headers[1], color: '#3b3b7a' },
+                plot_bgcolor: '#f1f5f9',
+                paper_bgcolor: '#f1f5f9',
+                margin: { t: 60, l: 60, r: 30, b: 60 },
+                width: 500,
+                height: 340
+            };
+
+            Plotly.newPlot('plot', [trace], layout, {responsive: true, displayModeBar: true});
+            lastPlotType = type;
+            Plotly.newPlot('plot', [trace], layout, {displayModeBar: false});
+
+        }
+
+        document.getElementById('plot1Btn').addEventListener('click', function() {
+            showPlot('line');
+        });
+
+        document.getElementById('plot2Btn').addEventListener('click', function() {
+            showPlot('bar');
+        });
+
+        document.getElementById('exportBtn').addEventListener('click', function() {
+            if (!lastPlotType) {
+                alert('No plot to export. Please generate a plot first.');
+                return;
+            }
+            let filename = lastPlotType === 'line' ? 'line_chart' : 'bar_chart';
+            Plotly.downloadImage('plot', {format: 'png', filename: filename});
+        });
+    </script>
+</body>
+</html>
